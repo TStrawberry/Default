@@ -3,9 +3,9 @@ import Testing
 @testable import Default
 
 @DefaultDecodable
-struct User: Codable, Equatable {
+public struct User: Codable, Equatable {
     @Default("default name")
-    var name: String
+    public internal(set) var name: String
 
     @Default(10)
     var age: Int
@@ -19,6 +19,22 @@ struct User: Codable, Equatable {
     #expect(user.name == "Alice")
     #expect(user.age == 25)
     #expect(user.isAdult)
+}
+
+@Test func defaultInitialization() throws {
+    let user = User(isAdult: true)
+
+    #expect(user.name == "default name")
+    #expect(user.age == 10)
+    #expect(user.isAdult)
+}
+
+@Test func generatedInitUsesDefaultValues() {
+    let user = User(isAdult: false)
+
+    #expect(user.name == "default name")
+    #expect(user.age == 10)
+    #expect(user.isAdult == false)
 }
 
 @Test func decodeTheFieldsThatIsNotMarked() throws {

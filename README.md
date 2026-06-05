@@ -2,7 +2,7 @@
 
 `Default` is a Swift package for defining fallback values on `Decodable` properties.
 
-You write `@Default` on each property and `@DefaultDecodable` on the struct. The macros generate a private `DecodeDefaultValue` type per property and attach `@DefaultProperty` for lenient decoding. `@DefaultDecodable` never generates `CodingKeys` or `init(from:)`, so you can still provide your own Codable implementation.
+You write `@Default` on each property and `@DefaultDecodable` on the struct. The macros generate a private `DecodeDefaultValue` type per property, attach `@DefaultProperty` for lenient decoding, and synthesize a memberwise `init` with default values for `@Default` properties. `@DefaultDecodable` does not generate `CodingKeys` or `init(from:)`.
 
 ## Quick start
 
@@ -30,7 +30,7 @@ Three pieces work together:
 |-------|------|
 | `@Default` | Marker only. Generates a private `DecodeDefaultValue` type for the property. |
 | `@DefaultProperty` | Property wrapper that decodes leniently when a JSON key is present. |
-| `@DefaultDecodable` | Attaches `@DefaultProperty` to each `@Default` property. Does not generate `CodingKeys` or `init(from:)`. |
+| `@DefaultDecodable` | Attaches `@DefaultProperty` to each `@Default` property and generates a memberwise `init` with default values. Does not generate `CodingKeys` or `init(from:)`. |
 
 Given this source:
 
@@ -67,10 +67,42 @@ struct User: Codable, Equatable {
     @Default(10)
     @DefaultProperty<__DefaultValue_age>
     var age: Int
+
+    init(
+        name: String = "default name",
+        age: Int = 10
+    ) {
+        self.name = name
+        self.age = age
+    }
 }
 ```
 
-`DecodeDefaultValue` holds the fallback value. `DefaultProperty` uses that type when decoding from a single-value container.
+`DecodeDefaultValue` holds the fallback value. `DefaultProperty` uses that type when decoding from a single-value container. The generated `init` applies the same defaults for ordinary initialization.
+
+## Initialization
+
+`@Default` properties get default arguments in the synthesized initializer. Properties without `@Default` remain required:
+
+```swift
+@DefaultDecodable
+struct User: Codable, Equatable {
+    @Default("default name")
+    var name: String
+
+    @Default(10)
+    var age: Int
+
+    var isAdult: Bool
+}
+
+let user = User(isAdult: false)
+// user.name == "default name"
+// user.age == 10
+// user.isAdult == false
+```
+
+If you define your own non-`init(from:)` initializer, the macro skips generating one.
 
 ## Decoding behavior
 
@@ -103,6 +135,21 @@ struct Settings: Codable {
 ```
 
 Each property needs an explicit type annotation (for example `var name: String`, not `var name`).
+
+When a property is `public`, its generated `__DefaultValue_*` type is also `public`:
+
+```swift
+@Default("default name")
+public internal(set) var name: String
+
+// expands to:
+public enum __DefaultValue_name: DecodeDefaultValue {
+    public typealias T = String
+    public static var defaultValue: String {
+        "default name"
+    }
+}
+```
 
 ## Custom `CodingKeys`
 

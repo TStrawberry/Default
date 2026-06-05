@@ -24,19 +24,34 @@ public struct DefaultMarkerMacro: PeerMacro {
         providingPeersOf declaration: some DeclSyntaxProtocol,
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
-        let bindingInfo = try bindingInfo(from: declaration, attribute: node)
-        let typeName = defaultValueTypeName(for: bindingInfo.name)
+        guard let varDecl = declaration.as(VariableDeclSyntax.self) else {
+            throw DefaultPropertyMacroError.notVariable
+        }
 
-        return [
-            DeclSyntax(
-                """
+        let bindingInfo = try bindingInfo(from: varDecl, attribute: node)
+        let typeName = defaultValueTypeName(for: bindingInfo.name)
+        let accessLevel = accessLevelKeyword(for: varDecl)
+
+        let enumDecl: DeclSyntax
+        if accessLevel.isEmpty {
+            enumDecl = """
                 enum \(raw: typeName): DecodeDefaultValue {
                     typealias T = \(raw: bindingInfo.type)
                     static var defaultValue: \(raw: bindingInfo.type) { \(raw: bindingInfo.defaultExpression) }
                 }
                 """
-            ),
-        ]
+        } else {
+            enumDecl = """
+                \(raw: accessLevel) enum \(raw: typeName): DecodeDefaultValue {
+                    \(raw: accessLevel) typealias T = \(raw: bindingInfo.type)
+                    \(raw: accessLevel) static var defaultValue: \(raw: bindingInfo.type) {
+                        \(raw: bindingInfo.defaultExpression)
+                    }
+                }
+                """
+        }
+
+        return [DeclSyntax(enumDecl)]
     }
 }
 
@@ -50,14 +65,22 @@ private func defaultValueTypeName(for propertyName: String) -> String {
     "__DefaultValue_\(propertyName)"
 }
 
-private func bindingInfo(
-    from declaration: some DeclSyntaxProtocol,
-    attribute: AttributeSyntax
-) throws -> BindingInfo {
-    guard let varDecl = declaration.as(VariableDeclSyntax.self) else {
-        throw DefaultPropertyMacroError.notVariable
+private func accessLevelKeyword(for varDecl: VariableDeclSyntax) -> String {
+    if varDecl.modifiers.contains(where: { $0.name.text == "public" }) {
+        return "public"
     }
 
+    if varDecl.modifiers.contains(where: { $0.name.text == "package" }) {
+        return "package"
+    }
+
+    return ""
+}
+
+private func bindingInfo(
+    from varDecl: VariableDeclSyntax,
+    attribute: AttributeSyntax
+) throws -> BindingInfo {
     guard let binding = varDecl.bindings.first,
           let pattern = binding.pattern.as(IdentifierPatternSyntax.self) else {
         throw DefaultPropertyMacroError.notVariable
