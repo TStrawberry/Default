@@ -4,6 +4,21 @@
 
 You write `@Default` on each property and `@DefaultDecodable` on the struct. The macros generate a private `DecodeDefaultValue` type per property, attach `@DefaultProperty` for lenient decoding, and synthesize a memberwise `init` with default values for `@Default` properties. `@DefaultDecodable` does not generate `CodingKeys` or `init(from:)`.
 
+
+## Requirements
+
+- Swift 6.0+
+
+## Installation
+
+Add the package to your `Package.swift`:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/your-org/Default.git", from: "1.0.0"),
+]
+```
+
 ## Quick start
 
 ```swift
@@ -194,35 +209,3 @@ struct Settings: Decodable {
 ```
 
 Because `@DefaultDecodable` never generates `init(from:)`, this does not conflict with the macros.
-
-## Requirements
-
-- Swift 6.0+
-- iOS 13+, macOS 10.15+, tvOS 13+, watchOS 6+
-
-## Installation
-
-Add the package to your `Package.swift`:
-
-```swift
-dependencies: [
-    .package(url: "https://github.com/your-org/Default.git", from: "1.0.0"),
-]
-```
-
-Or add it locally:
-
-```swift
-dependencies: [
-    .package(path: "../Default"),
-]
-```
-
-Then add `Default` to your target dependencies:
-
-```swift
-.target(
-    name: "YourTarget",
-    dependencies: ["Default"]
-)
-```
